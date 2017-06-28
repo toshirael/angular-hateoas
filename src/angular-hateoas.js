@@ -70,113 +70,121 @@
  * })
  * ```
  */
-angular.module("hateoas", ["ngResource"])
 
-	.provider("HateoasInterface", function () {
+(function(window, angular, undefined) {
+    angular
+        .module('hateoas', ['ngResource'])
+        .provider('HateoasInterface', function () {
+            function setLinksKey(newLinksKey) {
+                linksKey = newLinksKey || linksKey;
+            }
 
-		// global Hateoas settings
-		var globalHttpMethods,
-			linksKey = "links",
-			halEmbedded = false;
+            function getLinksKey() {
+                return linksKey;
+            }
 
-		return {
+            function setHalEmbedded(newEmbeddedKey) {
+                halEmbedded = newEmbeddedKey;
+            }
 
-			setLinksKey: function (newLinksKey) {
-				linksKey = newLinksKey || linksKey;
-			},
+            function getHalEmbedded() {
+                return halEmbedded;
+            }
 
-			getLinksKey: function () {
-				return linksKey;
-			},
+            function setHttpMethods(httpMethods) {
+                globalHttpMethods = angular.copy(httpMethods);
+            }
 
-			setHalEmbedded: function (newEmbeddedKey) {
-				halEmbedded = newEmbeddedKey;
-			},
+            function get($injector) {
+                function arrayToObject(keyItem, valueItem, array) {
+                    var obj = {};
 
-			getHalEmbedded: function () {
-				return halEmbedded;
-			},
+                    angular.forEach(array, function(item, index) {
+                        if (array[index] && item[valueItem]) {
+                            obj[index] = item[valueItem];
+                        }
+                    });
 
-			setHttpMethods: function (httpMethods) {
-				globalHttpMethods = angular.copy(httpMethods);
-			},
+                    return obj;
+                }
 
-			$get: ["$injector", function ($injector) {
+                function getResourceLink(linkName){
+                    return linkName in this[linksKey] ? this[linksKey][linkName] : undefined;
+                }
 
-				var arrayToObject = function (keyItem, valueItem, array) {
-					var obj = {};
-					angular.forEach(array, function (item, index) {
-						if ((item[keyItem] || index) && item[valueItem]) {
-							obj[item[keyItem] || index] = item[valueItem];
-						}
-					});
+                function resource(linkName, bindings, httpMethods) {
+                    if (linkName in this[linksKey]) {
+                        return $injector.get('$resource')(this[linksKey][linkName], bindings, httpMethods || globalHttpMethods);
+                    } else {
+                        throw 'Link "' + linkName + '" is not present in object.';
+                    }
+                }
 
-					return obj;
-				};
+                function HateoasInterface(data) {
+                    // if links are present, consume object and convert links
+                    if (data[linksKey]) {
+                        var links = {};
+                            links[linksKey] = arrayToObject('rel', 'href', data[linksKey]);
 
-				var resource = function (linkName, bindings, httpMethods) {
-					if (linkName in this[linksKey]) {
-						return $injector.get("$resource")(this[linksKey][linkName], bindings, httpMethods || globalHttpMethods);
-					} else {
-						throw "Link '" + linkName + "' is not present in object.";
-					}
-				};
+                        data = angular.extend(this, data, links, { resource: resource, getResourceLink: getResourceLink });
+                    }
 
-				var HateoasInterface = function (data) {
+                    if (halEmbedded && data[halEmbedded]) {
+                        data = angular.extend(this, data, new HateoasInterface(data[halEmbedded]));
+                    }
 
-					// if links are present, consume object and convert links
-					if (data[linksKey]) {
-						var links = {};
-						links[linksKey] = arrayToObject("rel", "href", data[linksKey]);
-						data = angular.extend(this, data, links, { resource: resource });
-					}
+                    // recursively consume all contained arrays or objects with links
+                    angular.forEach(data, function (value, key) {
+                        if (key !== linksKey && angular.isObject(value) && (angular.isArray(value) || value[linksKey])) {
+                            data[key] = new HateoasInterface(value);
+                        }
+                    });
 
-					if (halEmbedded && data[halEmbedded]) {
-						data = angular.extend(this, data, new HateoasInterface(data[halEmbedded]));
-					}
+                    return data;
+                }
 
-					// recursively consume all contained arrays or objects with links
-					angular.forEach(data, function (value, key) {
-						if (key !== linksKey && angular.isObject(value) && (angular.isArray(value) || value[linksKey])) {
-							data[key] = new HateoasInterface(value);
-						}
-					});
+                return HateoasInterface;
+            }
 
-					return data;
+            var hateoas = this;
 
-				};
+            // global Hateoas settings
+            var globalHttpMethods;
+            var linksKey = 'links';
+            var halEmbedded = false;
 
-				return HateoasInterface;
+            hateoas.setLinksKey = setLinksKey;
+            hateoas.getLinksKey = getLinksKey;
+            hateoas.setHalEmbedded = setHalEmbedded;
+            hateoas.getHalEmbedded = getHalEmbedded;
+            hateoas.setHttpMethods = setHttpMethods;
+            hateoas.$get = ['$injector', get];
 
-			}]
+            return hateoas;
+        })
+        .provider('HateoasInterceptor', ['$httpProvider', function($httpProvider) {
+            function transformAllResponses() {
+                $httpProvider.interceptors.push('HateoasInterceptor');
+            }
 
-		};
+            function get(HateoasInterface, $q) {
+                return {
+                    response: function (response) {
+                        if (response && angular.isObject(response.data)) {
+                            response.data = new HateoasInterface(response.data);
+                        }
 
-	})
+                        return response || $q.when(response);
+                    }
+                };
+            }
 
-	.provider("HateoasInterceptor", ["$httpProvider", function ($httpProvider) {
+            var hateoas = this;
 
-		return {
+            hateoas.transformAllResponses = transformAllResponses;
+            hateoas.$get = ['HateoasInterface', '$q', get];
 
-			transformAllResponses: function () {
-				$httpProvider.interceptors.push("HateoasInterceptor");
-			},
-
-			$get: ["HateoasInterface", "$q", function (HateoasInterface, $q) {
-
-				return {
-					response: function (response) {
-
-						if (response && angular.isObject(response.data)) {
-							response.data = new HateoasInterface(response.data);
-						}
-
-						return response || $q.when(response);
-
-					}
-				};
-			}]
-
-		};
-
-	}]);
+            return hateoas;
+        }])
+    ;
+})(window, window.angular);
