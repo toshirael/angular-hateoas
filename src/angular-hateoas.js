@@ -38,9 +38,9 @@
  *
  * ```javascript
  * var someResource = $resource("/some/rest/endpoint");
- * var someResult = someResource.get(null, function () {
+ * var someResult = someResource.get(null, function() {
  *     var object = new HateoasInterface(someResult);
- *     var putResult = object.resource("something-related").put({ someData: "whatever" }, function () {
+ *     var putResult = object.resource("something-related").put({ someData: "whatever" }, function() {
  *         // logic, etc.
  *     });
  * });
@@ -54,7 +54,7 @@
  * First, initialize the interceptor:
  *
  * ```javascript
- * app.config(function (HateoasInterceptorProvider) {
+ * app.config(function(HateoasInterceptorProvider) {
  *     HateoasInterceptorProvider.transformAllResponses();
  * });
  * ```
@@ -63,8 +63,8 @@
  *
  * ```javascript
  * var someResource = $resource("/some/rest/endpoint");
- * var someResult = someResource.get(null, function () {
- *     var putResult = someResult.resource("something-related").put({ someData: "whatever" }, function () {
+ * var someResult = someResource.get(null, function() {
+ *     var putResult = someResult.resource("something-related").put({ someData: "whatever" }, function() {
  *         // logic, etc.
  *     });
  * })
@@ -74,7 +74,7 @@
 (function(window, angular, undefined) {
     angular
         .module('hateoas', ['ngResource'])
-        .provider('HateoasInterface', function () {
+        .provider('HateoasInterface', function() {
             function setLinksKey(newLinksKey) {
                 linksKey = newLinksKey || linksKey;
 
@@ -135,16 +135,16 @@
                         data = angular.extend(this, data, links, { resource: resource, getResourceLink: getResourceLink });
                     }
 
-                    if (halEmbedded && data[halEmbedded]) {
-                        data = angular.extend(this, data, new HateoasInterface(data[halEmbedded]));
-                    }
-
                     // recursively consume all contained arrays or objects with links
-                    angular.forEach(data, function (value, key) {
+                    angular.forEach(data, function(value, key) {
                         if (key !== linksKey && angular.isObject(value) && (angular.isArray(value) || value[linksKey])) {
                             data[key] = new HateoasInterface(value);
                         }
                     });
+
+                    if (halEmbedded && data[halEmbedded]) {
+                        data = angular.extend(this, data, new HateoasInterface(data[halEmbedded]));
+                    }
 
                     return data;
                 }
@@ -177,7 +177,7 @@
 
             function get(HateoasInterface, $q) {
                 return {
-                    response: function (response) {
+                    response: function(response) {
                         if (response && angular.isObject(response.data)) {
                             response.data = new HateoasInterface(response.data);
                         }
