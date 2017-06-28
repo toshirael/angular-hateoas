@@ -118,6 +118,17 @@
                     return linkName in this[linksKey] ? this[linksKey][linkName] : undefined;
                 }
 
+                function getResourceCleanedParams() {
+                    var obj = {};
+                    angular.forEach(this, function(value, index) {
+                        if (['getResourceLink', 'getResourceCleanedParams', 'resource', '_links', '_embedded'].indexOf(index) === -1) {
+                            obj[index] =  value;
+                        }
+                    });
+
+                    return obj;
+                }
+
                 function resource(linkName, bindings, httpMethods) {
                     if (linkName in this[linksKey]) {
                         return $injector.get('$resource')(this[linksKey][linkName], bindings, httpMethods || globalHttpMethods);
@@ -132,7 +143,7 @@
                         var links = {};
                             links[linksKey] = arrayToObject('rel', 'href', data[linksKey]);
 
-                        data = angular.extend(this, data, links, { resource: resource, getResourceLink: getResourceLink });
+                        data = angular.extend(this, data, links, { resource: resource, getResourceLink: getResourceLink, getResourceCleanedParams: getResourceCleanedParams });
                     }
 
                     // recursively consume all contained arrays or objects with links
