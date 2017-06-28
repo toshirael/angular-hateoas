@@ -77,6 +77,8 @@
         .provider('HateoasInterface', function () {
             function setLinksKey(newLinksKey) {
                 linksKey = newLinksKey || linksKey;
+
+                return hateoas;
             }
 
             function getLinksKey() {
@@ -85,6 +87,8 @@
 
             function setHalEmbedded(newEmbeddedKey) {
                 halEmbedded = newEmbeddedKey;
+
+                return hateoas;
             }
 
             function getHalEmbedded() {
@@ -93,6 +97,8 @@
 
             function setHttpMethods(httpMethods) {
                 globalHttpMethods = angular.copy(httpMethods);
+
+                return hateoas;
             }
 
             function get($injector) {
@@ -165,6 +171,8 @@
         .provider('HateoasInterceptor', ['$httpProvider', function($httpProvider) {
             function transformAllResponses() {
                 $httpProvider.interceptors.push('HateoasInterceptor');
+
+                return hateoas;
             }
 
             function get(HateoasInterface, $q) {
